@@ -1,0 +1,15 @@
+1. div.cds_area
+
+2-1 div.cds_area dl.cds_info dt.title a
+2-2 div.cds_area dl.cds_info dd.chn a
+2-3 div.cds_area dl.cds_info dd.meta span.hit span.blind
+2-4 div.cds_area dl.cds_info dd.meta span.like span.blind
+
+3-1 table.itemlist > tbody td.title > a
+3-2 table.itemlist span.rank
+3-3 table.itemlist td.title > a
+3-4 table.itemlist td.title span.sitestr
+
+4-1 div#content ul.lst_thum > li
+4-2 div#content ul.lst_thum > li > a > strong
+4-3 div#content ul.lst_thum > li > a > span.writer
