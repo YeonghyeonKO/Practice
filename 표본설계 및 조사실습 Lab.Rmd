@@ -1,0 +1,219 @@
+---
+title: "LAB 1."
+author: "Hoyoung Park"
+date: "October 2, 2019"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+fontsize: 10pt
+geometry: margin=1in
+header-includes:
+- \usepackage{graphicx}
+- \usepackage{kotex}
+- \usepackage{natbib}
+- \usepackage{amsmath,amsthm,amssymb,epsfig}
+- \usepackage{hyperref}
+- \setlength{\oddsidemargin}{0 in}
+- \setlength{\evensidemargin}{0 in}
+- \setlength{\topmargin}{-0.6 in}
+- \setlength{\textwidth}{6.5 in}
+- \setlength{\textheight}{8.5 in}
+- \setlength{\headsep}{0.75 in}
+- \setlength{\parindent}{0 in}
+- \setlength{\parskip}{0.1 in}
+- \let\hat\widehat
+- \newcommand{\by}{\mathbf{y}}
+- \newcommand{\bH}{\mathbf{H}}
+highlight: tango
+number_sections: yes
+fig_caption: yes
+pdf_document: Lab.1
+documentclass: article
+---
+# data loading
+```{r}
+rm(list = ls())
+setwd("C:\\Users\\1234\\Desktop\\고영현\\수업\\19-2\\표본설계 및 조사실습\\표본설계_및_조사실습_(2019년도,_2학기,_326.214_001)-과목공지")
+data.exampe<-readRDS("박호영_data.exampe.rds")
+str(data.exampe)
+
+```
+
+
+
+```{r}
+#-----------------------------------------------------------------------------------------#
+#-----------------------------------------------------------------------------------------#
+#------------------------------ SRS for wage estimation ----------------------------------#
+#-----------------------------------------------------------------------------------------#
+#-----------------------------------------------------------------------------------------#
+set.seed(1015)
+wage.vector<-c();
+for( i in 1 : length(data.exampe)){
+  wage.vector<-c(wage.vector,data.exampe[[i]][,3])   # data.exampe[[i]] : i번째 리스트 요소에 접근
+  # i번째 리스트에서 [,3]은  3열(임금)을 벡터로
+}
+N<-length(wage.vector) # population number
+true.mean.wage<-mean(wage.vector) # true wage mean
+true.var.wage<-var(wage.vector)*(N-1)/N # true wage var
+
+# Check CLT 
+par(mfrow=c(2,2))
+sample.number<-c(5,10,50,500) 
+for (i in 1:4){ 
+  wage.sample.mean<-c()
+  for (j in 1:1000){
+    wage.sample<-sample(wage.vector,sample.number[i],replace=F)  # 5/10/50/500개 표본 비복원추출
+    wage.sample.mean[j]<-mean(wage.sample) 
+    # 1000개 길이의 벡터(표본평균 X1, ..., x1000)
+  }
+  normalize.srs.mean.wage<-(wage.sample.mean-true.mean.wage)/sqrt(true.var.wage/sample.number[i])
+  
+  
+  hist(normalize.srs.mean.wage, xlim=c(-5,5),ylim=c(0,0.6)
+       , probability=T, main=paste("SRS sample mean dist with n=",sample.number[i]))
+  y<-seq(-5, 5, 0.01)
+  
+  fy<-dnorm(y, 0, 1)
+  lines(y, fy,col="red")
+  legend("topright" ,"Standard normal density function", 
+         lwd=c(1),lty=c(1),
+         col=c("red"),cex=0.5)
+  
+}
+```
+
+
+
+```{r}
+#-----------------------------------------------------------------------------------------#
+#-----------------------------------------------------------------------------------------#
+#----------------------------- Sample allocation    --------------------------------------#
+#-----------------------------------------------------------------------------------------#
+#-----------------------------------------------------------------------------------------#
+
+
+N_h<-c()
+true.mean.wage_h<-c() # true mean wage per area
+true.var.wage_h<-c() # true var wage per area
+for(i in 1 : length(data.exampe)){
+  N_h<-c(N_h,dim(data.exampe[[i]])[1])  # 각 층의 모집단 수
+  true.mean.wage_h<-c(true.mean.wage_h,mean(data.exampe[[i]][,3]) ) # 각 층의 임금 평균 참값 
+  true.var.wage_h<-c(true.var.wage_h,var(data.exampe[[i]][,3])*(dim(data.exampe[[i]])[1]-1)/
+                       dim(data.exampe[[i]])[1] ) # 각 층의 임금 분산 참값
+}
+N<-sum(N_h)
+D=1 # 최대 오차 허용한계 = +-2 -> D=2^2/4=1
+
+# Neyman allocation (c_h=c, c_h : 비용함수 )
+# Neyman allocation total sample number
+n_neyman<-round((sum(N_h*sqrt(true.var.wage_h))^2)/(N^2*D+sum(N_h*true.var.wage_h))) 
+n_neyman
+# Neyman allocation sample number per area
+n_neyman_h<-round((N_h*sqrt(true.var.wage_h))/(sum(N_h*sqrt(true.var.wage_h)))*n_neyman) 
+n_neyman_h
+
+# proportional allocation (n_h = c*N_h, c= constant)
+# Proortion allocation total sample number
+n_prop<-round((sum(N_h*true.var.wage_h))/(N*D+sum(N_h*true.var.wage_h)/N))
+n_prop
+# Proortion allocation sample number per area
+n_prop_h<-round((N_h/N)*n_prop)
+n_prop_h
+
+# Comparision : Neyman and SRS
+# We approximate MSE using 1000 iterations
+wage.est.srs<-c()
+wage.est.neyman<-c()
+for(j in 1 : 1000){
+  wage.sample.neyman<-c()
+  for(i in 1: 10){
+    wage.sample.neyman<-c(wage.sample.neyman,
+                          mean(sample(data.exampe[[i]][,3],n_neyman_h[i],replace=F) ) ) 
+  }
+  wage.est.neyman[j]<-sum(wage.sample.neyman*N_h/N)
+  
+  wage.sample.srs<-sample(wage.vector,n_neyman,replace=F) 
+  wage.est.srs[j]<-mean(wage.sample.srs)
+}
+
+cat("Neyman allocation MSE is : " 
+    ,mean((wage.est.neyman-true.mean.wage)^2))
+cat("SRS MSE is : " 
+    ,mean((wage.est.srs-true.mean.wage)^2))
+cat("MSE ratio of the Neyman allocation to SRS is :"  
+    ,mean((wage.est.neyman-true.mean.wage)^2)/mean((wage.est.srs-true.mean.wage)^2))
+
+
+# Comparision : PROP and SRS
+# We approximate MSE using 1000 iterations
+wage.est.srs<-c()
+wage.est.prop<-c()
+for(j in 1 : 1000){
+  wage.sample.prop<-c()
+  for(i in 1: 10){
+    wage.sample.prop<-c(wage.sample.prop
+                        ,mean(sample(data.exampe[[i]][,3],n_prop_h[i],replace=F) ) ) 
+  }
+  wage.est.prop[j]<-sum(wage.sample.prop*N_h/N)
+  
+  wage.sample.srs<-sample(wage.vector,n_prop,replace=F) 
+  wage.est.srs[j]<-mean(wage.sample.srs)
+}
+
+cat("Proportion allocation MSE is : "
+    ,mean((wage.est.prop-true.mean.wage)^2))
+cat("SRS MSE is : " 
+    ,mean((wage.est.srs-true.mean.wage)^2))
+cat("MSE ratio of the Proportion allocation to SRS is :"  
+    ,mean((wage.est.prop-true.mean.wage)^2)/mean((wage.est.srs-true.mean.wage)^2))
+```
+
+```{r}
+
+#-----------------------------------------------------------------------------------------#
+#-----------------------------------------------------------------------------------------#
+#----------------------------- post-stratification    ------------------------------------#
+#-----------------------------------------------------------------------------------------#
+#-----------------------------------------------------------------------------------------#
+
+
+Area<-c(rep("A1",dim(data.exampe[[1]])[1]),rep("A2",dim(data.exampe[[2]])[1])
+        ,rep("A3",dim(data.exampe[[3]])[1]),rep("A4",dim(data.exampe[[4]])[1])
+        ,rep("A5",dim(data.exampe[[5]])[1]),rep("A6",dim(data.exampe[[6]])[1])
+        ,rep("A7",dim(data.exampe[[7]])[1]),rep("A8",dim(data.exampe[[8]])[1])
+        ,rep("A9",dim(data.exampe[[9]])[1]),rep("A10",dim(data.exampe[[10]])[1]))
+
+# Comparision : Post-stratification and SRS
+# We approximate MSE using 1000 iterations
+n.post=(n_neyman+n_prop)/2 
+  # we choose total sample number by (n_neyman+n_prop)/2 정해진 n이 없어서 임의로 잡음.
+wage.est.srs<-c()
+wage.est.post<-c()  
+n.post_h<-c()
+wage.est.post_h<-c()
+for(j in 1 : 1000){
+  sample_index<-sample(1:N,n.post,replace=F)
+  wage.vector.sample<-wage.vector[sample_index]
+  # 표본 index를 통해 임금 벡터열 추출.
+  wage.est.srs[j]<-mean(wage.vector.sample) # SRS
+  
+  for( i in 1 : length(data.exampe)){
+    n.post_h[i]<-sum(Area[sample_index]==paste("A",i,sep="")) 
+    wage.est.post_h[i]<-mean(wage.vector.sample[Area[sample_index]==paste("A",i,sep="")])
+  }
+  
+  wage.est.post[j]<-sum(N_h/N*wage.est.post_h)
+  
+  
+}
+
+cat("post-stratification MSE is : " ,mean((wage.est.post-true.mean.wage)^2))
+cat("SRS MSE is : " ,mean((wage.est.srs-true.mean.wage)^2))
+cat("MSE ratio of the Proportion allocation to SRS is :"  ,mean((wage.est.post-true.mean.wage)^2)/ mean((wage.est.srs-true.mean.wage)^2))
+
+
+
+
+```
